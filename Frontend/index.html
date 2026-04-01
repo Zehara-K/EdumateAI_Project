@@ -95,11 +95,23 @@
                     <label for="deadline">Deadline</label>
                     <input type="date" id="deadline">
                 </div>
+                <div class="field">
+                    <label for="taskKnowledge">Knowledge Level</label>
+                    <select id="taskKnowledge">
+                        <option value="Low">Low</option>
+                        <option value="Moderate">Moderate</option>
+                        <option value="Strong">Strong</option>
+                    </select>
+                </div>
                 <div class="field action-field">
                     <label>&nbsp;</label>
-                    <button class="primary-btn" onclick="addTask()">Add Task</button>
+                    <div class="task-form-actions">
+                        <button id="taskSubmitBtn" class="primary-btn" onclick="addTask()">Add Task</button>
+                        <button id="taskCancelBtn" class="secondary-btn task-cancel-btn" onclick="cancelTaskEdit()">Cancel</button>
+                    </div>
                 </div>
             </div>
+            <p class="task-grid-note">Priority is calculated from the selected knowledge level and deadline.</p>
             <ul id="taskList" class="task-grid"></ul>
         </div>
     </section>
@@ -113,13 +125,13 @@
         </div>
 
         <div class="panel-card planner-panel">
-            <p id="plannerHint" class="hint-text">Add tasks first. The planner will build a realistic schedule directly from your tasks.</p>
+            <p id="plannerHint" class="hint-text">Add tasks first. The planner will build a focused learning schedule for the selected task.</p>
             <div id="plannerTaskSummary" class="planner-summary"></div>
 
             <div class="planner-controls">
                 <div class="field">
-                    <label for="startDate">Planner Start Date</label>
-                    <input type="date" id="startDate">
+                    <label for="plannerTaskSelect">Choose Task</label>
+                    <select id="plannerTaskSelect" onchange="showSelectedTaskPlan()"></select>
                 </div>
                 <div class="field planner-action">
                     <label>&nbsp;</label>
@@ -127,8 +139,9 @@
                 </div>
             </div>
 
+            <div id="plannerProgress" class="planner-progress"></div>
             <div id="plannerBoard" class="planner-board"></div>
-            <pre id="plan"></pre>
+            <div id="plan" class="planner-status"></div>
         </div>
     </section>
 

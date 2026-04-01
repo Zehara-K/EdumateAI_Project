@@ -58,11 +58,13 @@ p {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
-input {
+input,
+select {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: rgba(255, 255, 255, 0.95);
@@ -76,7 +78,8 @@ input::placeholder {
   color: #7b8ca4;
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: none;
   border-color: rgba(29, 78, 216, 0.55);
   box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.1);
@@ -481,7 +484,7 @@ button:hover {
 }
 
 .task-form-grid {
-  grid-template-columns: 2fr 1.1fr 0.9fr;
+  grid-template-columns: 2fr 1.1fr 1fr 1.1fr;
 }
 
 .planner-controls {
@@ -507,8 +510,144 @@ button:hover {
   border: 1px solid rgba(96, 165, 250, 0.14);
   border-radius: 18px;
   padding: 18px;
-  line-height: 1.7;
   box-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+}
+
+.task-form-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.task-cancel-btn {
+  display: none;
+}
+
+.task-cancel-btn.visible {
+  display: inline-flex;
+  justify-content: center;
+}
+
+.task-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 18px;
+}
+
+.task-grid-note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.task-card-head,
+.task-card-meta,
+.task-card-head-actions {
+  display: flex;
+}
+
+.task-card-head,
+.task-card-meta {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.task-card-head {
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.task-card-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.task-priority-chip,
+.task-effort-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.task-card-info {
+  display: grid;
+  gap: 8px;
+  color: #304255;
+  line-height: 1.55;
+}
+
+.task-card-info strong {
+  color: var(--text);
+}
+
+.task-card-meta {
+  margin-top: 14px;
+  align-items: center;
+}
+
+.task-card-head-actions {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.task-menu-wrap {
+  position: relative;
+}
+
+.task-menu-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  color: #334155;
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0;
+}
+
+.task-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 150px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.16);
+  display: none;
+  z-index: 5;
+}
+
+.task-menu.visible {
+  display: grid;
+  gap: 6px;
+}
+
+.task-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.task-menu button:hover {
+  background: #eff6ff;
+  transform: none;
 }
 
 .hint-text {
@@ -518,6 +657,10 @@ button:hover {
 }
 
 .planner-summary {
+  margin-bottom: 18px;
+}
+
+.planner-progress {
   margin-bottom: 18px;
 }
 
@@ -531,6 +674,32 @@ button:hover {
 
 .planner-task-item {
   margin-top: 10px;
+  color: #324760;
+}
+
+.planner-progress-card {
+  background: linear-gradient(145deg, #effaf5, #f8fffb);
+  border: 1px solid rgba(16, 185, 129, 0.14);
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.08);
+}
+
+.planner-progress-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.planner-progress-hours {
+  color: var(--primary);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.planner-progress-next {
+  margin-top: 12px;
   color: #324760;
 }
 
@@ -574,6 +743,27 @@ button:hover {
   border-radius: 16px;
   padding: 12px 14px;
   margin-bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.planner-session.completed {
+  opacity: 0.74;
+  background: linear-gradient(145deg, #f1f5f9, #ffffff);
+}
+
+.planner-session-check {
+  padding-top: 3px;
+}
+
+.planner-session-check input {
+  width: 18px;
+  height: 18px;
+}
+
+.planner-session-main {
+  min-width: 0;
 }
 
 .planner-session.empty {
@@ -590,6 +780,7 @@ button:hover {
 .planner-session-task {
   font-weight: 700;
   margin-bottom: 4px;
+  word-break: break-word;
 }
 
 .planner-session-meta {
@@ -598,7 +789,7 @@ button:hover {
   line-height: 1.5;
 }
 
-pre {
+.planner-status {
   margin: 0;
   background: linear-gradient(180deg, rgba(11, 18, 32, 0.97), rgba(17, 24, 39, 0.98));
   color: #dbeafe;
@@ -814,9 +1005,12 @@ pre {
     padding: 20px;
   }
 
-  .task-form-grid,
   .planner-controls {
     grid-template-columns: 1fr;
+  }
+
+  .task-form-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -861,5 +1055,26 @@ pre {
 
   .chat-send-btn {
     width: 100%;
+  }
+
+  .task-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-card-meta,
+  .task-card-head,
+  .task-card-head-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .task-menu {
+    left: 0;
+    right: auto;
+  }
+
+  .planner-progress-top {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

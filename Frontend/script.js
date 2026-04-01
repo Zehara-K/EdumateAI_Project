@@ -61,6 +61,7 @@ window.onload = function () {
     renderTasks();
     updatePlannerHint();
     renderPlannerTaskSummary();
+    renderPlannerTaskSelect();
     renderProfile();
     highlightActiveNav("home");
 };
@@ -83,6 +84,7 @@ function showPage(id) {
     if (id === "planner") {
         updatePlannerHint();
         renderPlannerTaskSummary();
+        renderPlannerTaskSelect();
     }
 
     if (id === "profile") {
@@ -95,6 +97,12 @@ function highlightActiveNav(id) {
         link.classList.toggle("active", link.dataset.page === id);
     });
 }
+
+document.addEventListener("click", (event) => {
+    if (!event.target.closest(".task-menu-wrap")) {
+        closeTaskMenu();
+    }
+});
 
 // ================= SHARED HELPERS =================
 function hasElement(id) {
@@ -140,6 +148,13 @@ function getCurrentUser() {
 function getTasksStorageKey() {
     return `tasks_${getCurrentUser()}`;
 }
+
+function getPlannerStorageKey() {
+    return `planner_progress_${getCurrentUser()}`;
+}
+
+let editingTaskId = null;
+let activeTaskMenuId = null;
 
 function getProfileStorageKey(username = getCurrentUser()) {
     return `profile_${username}`;
@@ -341,10 +356,89 @@ function saveTasks(tasks) {
     localStorage.setItem(getTasksStorageKey(), JSON.stringify(tasks));
 }
 
+function loadPlannerProgress() {
+    try {
+        return JSON.parse(localStorage.getItem(getPlannerStorageKey()) || "{}");
+    } catch (error) {
+        console.error("Failed to read saved planner progress:", error);
+        return {};
+    }
+}
+
+function savePlannerProgress(progress) {
+    localStorage.setItem(getPlannerStorageKey(), JSON.stringify(progress));
+}
+
+function createTaskId() {
+    return `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeKnowledgeLevel(level) {
+    const value = String(level || "").toLowerCase();
+
+    if (value === "low") {
+        return "Low";
+    }
+
+    if (value === "strong" || value === "high") {
+        return "Strong";
+    }
+
+    return "Moderate";
+}
+
 function parseDateOnly(value) {
+    if (value instanceof Date) {
+        const date = new Date(value);
+        date.setHours(0, 0, 0, 0);
+        return date;
+    }
+
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const [year, month, day] = value.split("-").map(Number);
+        return new Date(year, month - 1, day);
+    }
+
     const date = new Date(value);
     date.setHours(0, 0, 0, 0);
     return date;
+}
+
+function getDateKey(date) {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function getIndiaNowParts() {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23"
+    });
+    const parts = Object.fromEntries(
+        formatter.formatToParts(new Date())
+            .filter((part) => part.type !== "literal")
+            .map((part) => [part.type, part.value])
+    );
+
+    return {
+        year: Number(parts.year),
+        month: Number(parts.month),
+        day: Number(parts.day),
+        hour: Number(parts.hour),
+        minute: Number(parts.minute)
+    };
+}
+
+function getIndiaCurrentDate() {
+    const now = getIndiaNowParts();
+    return new Date(now.year, now.month - 1, now.day, now.hour, now.minute, 0, 0);
 }
 
 function getDaysLeft(dateValue) {
@@ -354,18 +448,34 @@ function getDaysLeft(dateValue) {
     return Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
 }
 
-function getPriorityFromDate(dateValue) {
+function getPriorityFromTask(dateValue, knowledgeLevel) {
     const daysLeft = getDaysLeft(dateValue);
+    const normalizedKnowledge = normalizeKnowledgeLevel(knowledgeLevel);
 
-    if (daysLeft <= 2) {
+    if (daysLeft <= 1) {
         return { label: "High", color: "red" };
     }
 
-    if (daysLeft <= 5) {
+    const thresholds = {
+        Low: { high: 3, medium: 10 },
+        Moderate: { high: 2, medium: 7 },
+        Strong: { high: 1, medium: 5 }
+    };
+    const currentThreshold = thresholds[normalizedKnowledge];
+
+    if (daysLeft <= currentThreshold.high) {
+        return { label: "High", color: "red" };
+    }
+
+    if (daysLeft <= currentThreshold.medium) {
         return { label: "Medium", color: "orange" };
     }
 
     return { label: "Low", color: "green" };
+}
+
+function getPriorityFromDate(dateValue) {
+    return getPriorityFromTask(dateValue, "Moderate");
 }
 
 function formatDate(dateValue) {
@@ -386,6 +496,18 @@ function addMinutes(date, minutes) {
 }
 
 function getEstimatedHours(priority) {
+    if (priority === "High") {
+        return 12;
+    }
+
+    if (priority === "Medium") {
+        return 8;
+    }
+
+    return 4;
+}
+
+function getDailyStudyHours(priority) {
     if (priority === "High") {
         return 6;
     }
@@ -430,10 +552,53 @@ function buildDateRange(startDate, endDate) {
     return dates;
 }
 
+function hydrateTask(task, index) {
+    const knowledgeLevel = normalizeKnowledgeLevel(task.knowledgeLevel || task.effort);
+    const priority = getPriorityFromTask(task.date, knowledgeLevel);
+
+    return {
+        ...task,
+        id: task.id || task.createdAt || `legacy_${index}_${task.date}`,
+        knowledgeLevel,
+        priority: priority.label
+    };
+}
+
+function resetTaskForm() {
+    const taskInput = getElement("task", "task-name");
+    const dateInput = getElement("deadline", "task-date");
+    const knowledgeInput = document.getElementById("taskKnowledge");
+    const submitButton = document.getElementById("taskSubmitBtn");
+    const cancelButton = document.getElementById("taskCancelBtn");
+
+    editingTaskId = null;
+
+    if (taskInput) {
+        taskInput.value = "";
+    }
+
+    if (dateInput) {
+        dateInput.value = "";
+    }
+
+    if (knowledgeInput) {
+        knowledgeInput.value = "Moderate";
+    }
+
+    if (submitButton) {
+        submitButton.innerText = "Add Task";
+    }
+
+    if (cancelButton) {
+        cancelButton.classList.remove("visible");
+    }
+}
+
 // ================= TASK MANAGER =================
 function addTask() {
     const taskName = getValue("task", "task-name");
     const dateValue = getValue("deadline", "task-date");
+    const knowledgeLevel = normalizeKnowledgeLevel(getValue("taskKnowledge"));
 
     if (!taskName || !dateValue) {
         alert("Please enter task and date");
@@ -449,31 +614,113 @@ function addTask() {
         return;
     }
 
-    const priority = getPriorityFromDate(dateValue);
-    const tasks = loadTasks();
+    const priority = getPriorityFromTask(dateValue, knowledgeLevel);
+    const tasks = loadTasks().map(hydrateTask);
 
-    tasks.push({
-        name: taskName,
-        date: dateValue,
-        priority: priority.label,
-        createdAt: new Date().toISOString()
-    });
+    if (editingTaskId) {
+        const targetTask = tasks.find((task) => task.id === editingTaskId);
+
+        if (!targetTask) {
+            alert("Task not found for update.");
+            resetTaskForm();
+            renderTasks();
+            return;
+        }
+
+        targetTask.name = taskName;
+        targetTask.date = dateValue;
+        targetTask.knowledgeLevel = knowledgeLevel;
+        targetTask.priority = priority.label;
+    } else {
+        tasks.push({
+            id: createTaskId(),
+            name: taskName,
+            date: dateValue,
+            knowledgeLevel,
+            priority: priority.label,
+            createdAt: new Date().toISOString()
+        });
+    }
 
     saveTasks(tasks);
+    activeTaskMenuId = null;
+    resetTaskForm();
     renderTasks();
     updatePlannerHint();
     renderPlannerTaskSummary();
+    renderPlannerTaskSelect();
+}
 
+function editTask(taskId) {
+    const tasks = loadTasks().map(hydrateTask);
+    const task = tasks.find((entry) => entry.id === taskId);
     const taskInput = getElement("task", "task-name");
     const dateInput = getElement("deadline", "task-date");
+    const knowledgeInput = document.getElementById("taskKnowledge");
+    const submitButton = document.getElementById("taskSubmitBtn");
+    const cancelButton = document.getElementById("taskCancelBtn");
 
-    if (taskInput) {
-        taskInput.value = "";
+    if (!task || !taskInput || !dateInput || !knowledgeInput) {
+        return;
     }
 
-    if (dateInput) {
-        dateInput.value = "";
+    editingTaskId = task.id;
+    activeTaskMenuId = null;
+    taskInput.value = task.name;
+    dateInput.value = task.date;
+    knowledgeInput.value = task.knowledgeLevel;
+
+    if (submitButton) {
+        submitButton.innerText = "Update Task";
     }
+
+    if (cancelButton) {
+        cancelButton.classList.add("visible");
+    }
+
+    taskInput.focus();
+}
+
+function cancelTaskEdit() {
+    resetTaskForm();
+}
+
+function toggleTaskMenu(taskId, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+
+    activeTaskMenuId = activeTaskMenuId === taskId ? null : taskId;
+    renderTasks();
+}
+
+function closeTaskMenu() {
+    if (activeTaskMenuId === null) {
+        return;
+    }
+
+    activeTaskMenuId = null;
+    renderTasks();
+}
+
+function deleteTask(taskId) {
+    const tasks = loadTasks().map(hydrateTask);
+    const nextTasks = tasks.filter((task) => task.id !== taskId);
+
+    if (nextTasks.length === tasks.length) {
+        return;
+    }
+
+    if (editingTaskId === taskId) {
+        resetTaskForm();
+    }
+
+    activeTaskMenuId = null;
+    saveTasks(nextTasks);
+    renderTasks();
+    updatePlannerHint();
+    renderPlannerTaskSummary();
+    renderPlannerTaskSelect();
 }
 
 function renderTasks() {
@@ -482,26 +729,65 @@ function renderTasks() {
         return;
     }
 
-    const tasks = loadTasks().sort((first, second) => first.date.localeCompare(second.date));
+    const tasks = loadTasks()
+        .map(hydrateTask)
+        .sort((first, second) => {
+            if (first.date !== second.date) {
+                return first.date.localeCompare(second.date);
+            }
+
+            return getPriorityWeight(second.priority) - getPriorityWeight(first.priority);
+        });
     taskList.innerHTML = "";
 
     if (!tasks.length) {
         const emptyItem = document.createElement("li");
+        emptyItem.className = "task-empty";
         emptyItem.innerText = "No tasks added yet.";
         taskList.appendChild(emptyItem);
         return;
     }
 
     tasks.forEach((task) => {
-        const priority = getPriorityFromDate(task.date);
+        const priority = getPriorityFromTask(task.date, task.knowledgeLevel);
         const daysLeft = getDaysLeft(task.date);
         const item = document.createElement("li");
+        const priorityBackground = priority.label === "High"
+            ? "rgba(239, 68, 68, 0.12)"
+            : priority.label === "Medium"
+                ? "rgba(245, 158, 11, 0.14)"
+                : "rgba(34, 197, 94, 0.12)";
+        const knowledgeBackground = task.knowledgeLevel === "Strong"
+            ? "rgba(37, 99, 235, 0.12)"
+            : task.knowledgeLevel === "Moderate"
+                ? "rgba(14, 116, 144, 0.1)"
+                : "rgba(100, 116, 139, 0.12)";
+        const isMenuOpen = activeTaskMenuId === task.id;
 
         item.innerHTML = `
-            <b>${task.name}</b><br>
-            Deadline: ${formatDate(task.date)}<br>
-            Priority: <span style="color:${priority.color}">${priority.label}</span><br>
-            Days Left: ${daysLeft}
+            <div class="task-card-head">
+                <div>
+                    <h4 class="task-card-title">${escapeHtml(task.name)}</h4>
+                </div>
+                <div class="task-card-head-actions">
+                    <span class="task-priority-chip" style="color:${priority.color}; background:${priorityBackground};">${priority.label}</span>
+                    <div class="task-menu-wrap">
+                        <button class="task-menu-btn" onclick="toggleTaskMenu('${escapeHtml(task.id)}', event)" aria-label="Task settings" aria-expanded="${isMenuOpen ? "true" : "false"}">...</button>
+                        <div class="task-menu ${isMenuOpen ? "visible" : ""}">
+                            <button onclick="editTask('${escapeHtml(task.id)}')">Edit task</button>
+                            <button onclick="deleteTask('${escapeHtml(task.id)}')">Delete task</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="task-card-info">
+                <div><strong>Deadline:</strong> ${formatDate(task.date)}</div>
+                <div><strong>Days Left:</strong> ${daysLeft}</div>
+            </div>
+            <div class="task-card-meta">
+                <div><strong>Knowledge Level:</strong></div>
+                <span class="task-effort-chip" style="color:#1e3a8a; background:${knowledgeBackground};">${task.knowledgeLevel}</span>
+            </div>
         `;
 
         taskList.appendChild(item);
@@ -517,11 +803,11 @@ function updatePlannerHint() {
 
     const taskCount = loadTasks().length;
     if (taskCount === 0) {
-        hintElement.innerText = "Add tasks first. The planner will build a realistic schedule directly from your tasks.";
+        hintElement.innerText = "Add tasks first. The planner will build a focused learning schedule for the selected task.";
         return;
     }
 
-    hintElement.innerText = `${taskCount} saved task(s) will be scheduled automatically with a maximum of 12 study hours per day.`;
+    hintElement.innerText = `${taskCount} saved task(s) are ready. Pick one task to generate its learning schedule and track completion.`;
 }
 
 function renderPlannerTaskSummary() {
@@ -530,7 +816,9 @@ function renderPlannerTaskSummary() {
         return;
     }
 
-    const tasks = loadTasks().sort((first, second) => first.date.localeCompare(second.date));
+    const tasks = loadTasks()
+        .map(hydrateTask)
+        .sort((first, second) => first.date.localeCompare(second.date));
 
     if (!tasks.length) {
         summaryElement.innerHTML = `
@@ -548,11 +836,12 @@ function renderPlannerTaskSummary() {
     `;
 
     tasks.forEach((task, index) => {
-        const priority = task.priority || getPriorityFromDate(task.date).label;
+        const priority = task.priority || getPriorityFromTask(task.date, task.knowledgeLevel).label;
         const estimatedHours = getEstimatedHours(priority);
+        const dailyHours = getDailyStudyHours(priority);
         content += `
             <div class="planner-task-item">
-                ${index + 1}. ${task.name} | Due ${formatDate(task.date)} | ${priority} priority | ${estimatedHours}h
+                ${index + 1}. ${task.name} | Due ${formatDate(task.date)} | ${task.knowledgeLevel} knowledge | ${priority} priority | ${estimatedHours}h total | up to ${dailyHours}h/day
             </div>
         `;
     });
@@ -561,13 +850,210 @@ function renderPlannerTaskSummary() {
     summaryElement.innerHTML = content;
 }
 
-function renderPlannerBoard(days) {
+function renderPlannerTaskSelect() {
+    const select = document.getElementById("plannerTaskSelect");
+    if (!select) {
+        return;
+    }
+
+    const tasks = loadTasks()
+        .map(hydrateTask)
+        .sort((first, second) => first.date.localeCompare(second.date));
+    const previousValue = select.value;
+
+    if (!tasks.length) {
+        select.innerHTML = `<option value="">No tasks available</option>`;
+        select.disabled = true;
+        renderPlannerProgress(null);
+        renderPlannerBoard(null, []);
+        setText("plan", "Add a task first, then generate a planner.");
+        return;
+    }
+
+    select.disabled = false;
+    select.innerHTML = `
+        <option value="">Select a task</option>
+        ${tasks.map((task) => `<option value="${escapeHtml(task.id)}">${escapeHtml(task.name)} | Due ${formatDate(task.date)}</option>`).join("")}
+    `;
+
+    const stillExists = tasks.some((task) => task.id === previousValue);
+    select.value = stillExists ? previousValue : "";
+
+    if (stillExists) {
+        showSelectedTaskPlan();
+    } else {
+        renderPlannerProgress(null);
+        renderPlannerBoard(null, []);
+        setText("plan", "Select a task to view or generate its study plan.");
+    }
+}
+
+function getTaskById(taskId) {
+    return loadTasks()
+        .map(hydrateTask)
+        .find((task) => task.id === taskId) || null;
+}
+
+function buildTaskPlan(task, existingPlan) {
+    const priority = task.priority || getPriorityFromTask(task.date, task.knowledgeLevel).label;
+    const totalHours = getEstimatedHours(priority);
+    const dailyHours = getDailyStudyHours(priority);
+    const now = getIndiaCurrentDate();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const dueDate = parseDateOnly(task.date);
+
+    if (dueDate < today) {
+        return null;
+    }
+
+    const completionMap = new Map((existingPlan?.sessions || []).map((session) => [`${session.date}|${session.start}|${session.end}`, session.completed]));
+    const sessions = [];
+    const days = buildDateRange(today, dueDate);
+    let remainingHours = totalHours;
+    let sessionIndex = 0;
+
+    days.forEach((date, index) => {
+        if (remainingHours <= 0) {
+            return;
+        }
+
+        const remainingDays = days.length - index;
+        const plannedHours = Math.min(dailyHours, Math.ceil(remainingHours / remainingDays));
+        let dayHoursLeft = plannedHours;
+        let cursor = new Date(date);
+        const isToday = index === 0;
+
+        if (isToday) {
+            cursor = new Date(now);
+            cursor.setSeconds(0, 0);
+
+            if (cursor.getMinutes() > 0) {
+                cursor.setHours(cursor.getHours() + 1, 0, 0, 0);
+            }
+        } else {
+            cursor.setHours(9, 0, 0, 0);
+        }
+
+        const latestStudyEndHour = 22;
+
+        while (dayHoursLeft > 0) {
+            if (cursor.getHours() >= 1 && cursor.getHours() < 5) {
+                cursor.setHours(5, 0, 0, 0);
+            }
+
+            const blockHours = Math.min(dayHoursLeft >= 2 ? 2 : 1, dayHoursLeft);
+            const blockStart = new Date(cursor);
+            const blockEnd = addMinutes(blockStart, blockHours * 60);
+
+            if (blockStart.getDate() !== date.getDate() && blockStart.getHours() < 5) {
+                blockStart.setHours(5, 0, 0, 0);
+                blockEnd.setTime(addMinutes(blockStart, blockHours * 60).getTime());
+            }
+
+            if (blockEnd.getHours() > latestStudyEndHour || (blockEnd.getHours() === latestStudyEndHour && blockEnd.getMinutes() > 0)) {
+                break;
+            }
+
+            const dateKey = getDateKey(blockStart);
+            const startLabel = formatTime(blockStart);
+            const endLabel = formatTime(blockEnd);
+            const sessionKey = `${dateKey}|${startLabel}|${endLabel}`;
+
+            sessions.push({
+                id: `${task.id}_session_${sessionIndex}`,
+                date: dateKey,
+                dayLabel: formatDate(dateKey),
+                start: startLabel,
+                end: endLabel,
+                hours: blockHours,
+                completed: completionMap.get(sessionKey) || false
+            });
+
+            sessionIndex += 1;
+            dayHoursLeft -= blockHours;
+            remainingHours -= blockHours;
+            cursor = addMinutes(blockEnd, 60);
+        }
+    });
+
+    return {
+        taskId: task.id,
+        taskName: task.name,
+        knowledgeLevel: task.knowledgeLevel,
+        priority,
+        deadline: task.date,
+        totalHours,
+        dailyHours,
+        sessions
+    };
+}
+
+function groupPlanDays(planData) {
+    if (!planData) {
+        return [];
+    }
+
+    const grouped = new Map();
+
+    planData.sessions.forEach((session) => {
+        if (!grouped.has(session.date)) {
+            grouped.set(session.date, []);
+        }
+
+        grouped.get(session.date).push(session);
+    });
+
+    return Array.from(grouped.entries())
+        .sort((first, second) => first[0].localeCompare(second[0]))
+        .map(([dateKey, sessions]) => ({
+            date: parseDateOnly(dateKey),
+            totalHours: sessions.reduce((sum, session) => sum + session.hours, 0),
+            sessions
+        }));
+}
+
+function renderPlannerProgress(planData) {
+    const progressElement = document.getElementById("plannerProgress");
+    if (!progressElement) {
+        return;
+    }
+
+    if (!planData) {
+        progressElement.innerHTML = "";
+        return;
+    }
+
+    const completedHours = planData.sessions
+        .filter((session) => session.completed)
+        .reduce((sum, session) => sum + session.hours, 0);
+    const nextSession = planData.sessions.find((session) => !session.completed);
+
+    progressElement.innerHTML = `
+        <div class="planner-progress-card">
+            <div class="planner-progress-top">
+                <div>
+                    <strong>${escapeHtml(planData.taskName)}</strong><br>
+                    Due ${formatDate(planData.deadline)} | ${planData.knowledgeLevel} knowledge | ${planData.priority} priority
+                </div>
+                <div class="planner-progress-hours">${formatHours(completedHours)}h / ${formatHours(planData.totalHours)}h done</div>
+            </div>
+            <div class="planner-progress-next">
+                ${nextSession
+                    ? `Next session: ${nextSession.dayLabel} | ${nextSession.start} - ${nextSession.end}`
+                    : "All planned sessions for this task are completed."}
+            </div>
+        </div>
+    `;
+}
+
+function renderPlannerBoard(planData, days) {
     const board = document.getElementById("plannerBoard");
     if (!board) {
         return;
     }
 
-    if (!days || !days.length) {
+    if (!planData || !days || !days.length) {
         board.innerHTML = "";
         return;
     }
@@ -583,24 +1069,58 @@ function renderPlannerBoard(days) {
                 </div>
         `;
 
-        if (!day.sessions.length) {
-            html += `<div class="planner-session empty">Free day / recovery / revision buffer</div>`;
-        } else {
-            day.sessions.forEach((session) => {
-                html += `
-                    <div class="planner-session">
-                        <div class="planner-session-time">${session.time}</div>
-                        <div class="planner-session-task">${session.title}</div>
-                        <div class="planner-session-meta">${session.meta}</div>
+        day.sessions.forEach((session) => {
+            html += `
+                <label class="planner-session ${session.completed ? "completed" : ""}">
+                    <div class="planner-session-check">
+                        <input type="checkbox" ${session.completed ? "checked" : ""} onchange="togglePlannerSession('${escapeHtml(planData.taskId)}', '${escapeHtml(session.id)}')">
                     </div>
-                `;
-            });
-        }
+                    <div class="planner-session-main">
+                        <div class="planner-session-time">${session.start} - ${session.end}</div>
+                    </div>
+                </label>
+            `;
+        });
 
         html += `</div>`;
     });
 
     board.innerHTML = html;
+}
+
+function showSelectedTaskPlan() {
+    const taskId = getValue("plannerTaskSelect");
+    if (!taskId) {
+        renderPlannerProgress(null);
+        renderPlannerBoard(null, []);
+        setText("plan", "Select a task to view or generate its study plan.");
+        return;
+    }
+
+    const task = getTaskById(taskId);
+    const plannerProgress = loadPlannerProgress();
+    const planData = task ? buildTaskPlan(task, plannerProgress[taskId]) : null;
+
+    if (!planData) {
+        renderPlannerProgress(null);
+        renderPlannerBoard(null, []);
+        setText("plan", "No saved plan yet for this task. Click Generate Planner to create one.");
+        return;
+    }
+
+    plannerProgress[taskId] = planData;
+    savePlannerProgress(plannerProgress);
+
+    if (!planData.sessions.length) {
+        renderPlannerProgress(planData);
+        renderPlannerBoard(null, []);
+        setText("plan", "No remaining study slots are available between the current time and this task's deadline.");
+        return;
+    }
+
+    renderPlannerProgress(planData);
+    renderPlannerBoard(planData, groupPlanDays(planData));
+    setText("plan", `${planData.priority} priority study plan loaded. Keep checking sessions as you complete them.`);
 }
 
 function getFallbackNotes(topic) {
@@ -700,167 +1220,67 @@ Format clearly with headings and bullet points where useful.`;
 }
 
 function generatePlan() {
-    const startDateValue = getValue("startDate", "examDate", "study-start-date");
-    if (!startDateValue) {
-        renderPlannerBoard([]);
-        setText("plan", "Please select a valid start date.");
+    const taskId = getValue("plannerTaskSelect");
+    if (!taskId) {
+        renderPlannerProgress(null);
+        renderPlannerBoard(null, []);
+        setText("plan", "Select a task first to generate its learning plan.");
         return;
     }
 
-    const startDate = parseDateOnly(startDateValue);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (startDate < today) {
-        renderPlannerBoard([]);
-        setText("plan", "Start date cannot be in the past.");
+    const task = getTaskById(taskId);
+    if (!task) {
+        renderPlannerProgress(null);
+        renderPlannerBoard(null, []);
+        setText("plan", "The selected task could not be found.");
         return;
     }
 
-    const savedTasks = loadTasks()
-        .map((task) => ({
-            ...task,
-            dueDate: parseDateOnly(task.date),
-            estimatedHours: getEstimatedHours(task.priority || getPriorityFromDate(task.date).label)
-        }))
-        .filter((task) => task.dueDate >= startDate)
-        .sort((first, second) => {
-            if (first.date !== second.date) {
-                return first.date.localeCompare(second.date);
-            }
+    const plannerProgress = loadPlannerProgress();
+    const planData = buildTaskPlan(task, plannerProgress[taskId]);
 
-            return getPriorityWeight(second.priority) - getPriorityWeight(first.priority);
-        });
-
-    if (!savedTasks.length) {
-        renderPlannerBoard([]);
-        setText("plan", "No future tasks found from your task list. Add tasks with upcoming dates to generate a planner.");
+    if (!planData) {
+        renderPlannerProgress(null);
+        renderPlannerBoard(null, []);
+        setText("plan", "This task deadline is already in the past, so no planner can be generated.");
         return;
     }
 
-    const lastDeadline = savedTasks.reduce((latest, task) => (task.dueDate > latest ? task.dueDate : latest), new Date(startDate));
+    plannerProgress[taskId] = planData;
+    savePlannerProgress(plannerProgress);
 
-    const planDays = buildDateRange(startDate, lastDeadline).map((date) => ({
-        date,
-        hours: 0,
-        items: []
-    }));
-
-    const targetHoursPerDay = 8;
-    const maxHoursPerDay = 12;
-    const warnings = [];
-    const taskQueue = savedTasks.map((task) => ({
-        ...task,
-        remainingHours: task.estimatedHours
-    }));
-
-    planDays.forEach((day) => {
-        let plannedToday = 0;
-        const availableTasks = taskQueue
-            .filter((task) => task.remainingHours > 0 && task.dueDate >= day.date)
-            .sort((first, second) => {
-                if (first.date !== second.date) {
-                    return first.date.localeCompare(second.date);
-                }
-
-                return getPriorityWeight(second.priority) - getPriorityWeight(first.priority);
-            });
-
-        availableTasks.forEach((task) => {
-            if (plannedToday >= targetHoursPerDay) {
-                return;
-            }
-
-            const freeHours = maxHoursPerDay - day.hours;
-            if (freeHours <= 0) {
-                return;
-            }
-
-            const daysLeft = Math.max(1, buildDateRange(day.date, task.dueDate).length);
-            const minimumToday = Math.ceil(task.remainingHours / daysLeft);
-            const preferredToday = Math.min(3, task.remainingHours);
-            const hoursForTask = Math.min(task.remainingHours, freeHours, Math.max(minimumToday, preferredToday));
-
-            if (hoursForTask <= 0) {
-                return;
-            }
-
-            day.items.push({
-                name: task.name,
-                hours: hoursForTask,
-                priority: task.priority,
-                deadline: task.dueDate
-            });
-            day.hours += hoursForTask;
-            plannedToday += hoursForTask;
-            task.remainingHours -= hoursForTask;
-        });
-    });
-
-    taskQueue.forEach((task) => {
-        if (task.remainingHours > 0) {
-            warnings.push(`${task.name} still needs ${formatHours(task.remainingHours)} more hour(s) before ${task.dueDate.toDateString()}.`);
-        }
-    });
-
-    const plannerDays = planDays.map((day) => {
-        const sessions = [];
-        let cursor = new Date(day.date);
-        cursor.setHours(9, 0, 0, 0);
-        let studyBlocks = 0;
-
-        day.items.forEach((item) => {
-            let remaining = item.hours;
-
-            while (remaining > 0) {
-                const blockHours = Math.min(2, remaining);
-                const blockStart = new Date(cursor);
-                const blockEnd = addMinutes(blockStart, blockHours * 60);
-
-                sessions.push({
-                    time: `${formatTime(blockStart)} - ${formatTime(blockEnd)}`,
-                    title: item.name,
-                    meta: `${formatHours(blockHours)}h | ${item.priority} priority | Due ${item.deadline.toDateString()}`
-                });
-
-                cursor = new Date(blockEnd);
-                remaining -= blockHours;
-                studyBlocks += 1;
-
-                if (remaining > 0) {
-                    cursor = addMinutes(cursor, 15);
-                } else if (studyBlocks % 2 === 0) {
-                    cursor = addMinutes(cursor, 45);
-                } else {
-                    cursor = addMinutes(cursor, 15);
-                }
-            }
-        });
-
-        return {
-            date: day.date,
-            totalHours: day.hours,
-            sessions
-        };
-    });
-
-    renderPlannerBoard(plannerDays);
-
-    let output = "Actual Study Planner\n\n";
-    output += `Planner starts: ${startDate.toDateString()}\n`;
-    output += `Tasks scheduled: ${savedTasks.length}\n`;
-    output += `Target study time: ${targetHoursPerDay}h/day\n`;
-    output += `Hard maximum: ${maxHoursPerDay}h/day\n\n`;
-    output += "Open the planner cards above to see the day-by-day time blocks.\n";
-
-    if (warnings.length) {
-        output += "\nWarnings\n";
-        warnings.forEach((warning) => {
-            output += `- ${warning}\n`;
-        });
+    if (!planData.sessions.length) {
+        renderPlannerProgress(planData);
+        renderPlannerBoard(null, []);
+        setText("plan", "No remaining study slots are available between the current time and this task's deadline.");
+        return;
     }
 
-    setText("plan", output.trim());
+    renderPlannerProgress(planData);
+    renderPlannerBoard(planData, groupPlanDays(planData));
+    setText("plan", `${planData.priority} priority study plan ready. Total target: ${formatHours(planData.totalHours)}h. Daily cap: ${formatHours(planData.dailyHours)}h.`);
+}
+
+function togglePlannerSession(taskId, sessionId) {
+    const plannerProgress = loadPlannerProgress();
+    const planData = plannerProgress[taskId];
+
+    if (!planData) {
+        return;
+    }
+
+    planData.sessions = planData.sessions.map((session) => (
+        session.id === sessionId
+            ? { ...session, completed: !session.completed }
+            : session
+    ));
+
+    plannerProgress[taskId] = planData;
+    savePlannerProgress(plannerProgress);
+
+    if (getValue("plannerTaskSelect") === taskId) {
+        generatePlan();
+    }
 }
 
 // ================= AI CHATBOT =================
