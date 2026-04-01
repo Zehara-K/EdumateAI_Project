@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signup - EduMate AI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page signup-page">
+  <div class="auth-shell">
+    <section class="auth-visual auth-visual-signup">
+      <div class="auth-visual-overlay"></div>
+      <div class="auth-visual-copy">
+        <span class="eyebrow">Create Your Space</span>
+        <img class="auth-logo" src="logo.svg" alt="EduMate AI logo">
+        <h1>Build a calm, focused study system that actually fits your routine.</h1>
+        <p>Register once and organize tasks, plans, assistant help, and chat in one place.</p>
+      </div>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-card">
+        <img class="auth-logo auth-logo-card" src="logo.svg" alt="EduMate AI logo">
+        <span class="eyebrow">Join EduMate AI</span>
+        <h2>Create Account</h2>
+        <p class="auth-subtext">Keep it simple and get started fast.</p>
+
+        <div class="auth-form">
+          <label for="username">Username</label>
+          <input type="text" id="username" placeholder="Choose a username">
+
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Create a password">
+
+          <label for="confirmPassword">Confirm Password</label>
+          <input type="password" id="confirmPassword" placeholder="Re-enter your password">
+
+          <button class="primary-btn auth-btn" onclick="registerUser()">Register</button>
+          <button class="secondary-btn auth-btn" onclick="redirectToLogin()">Back To Login</button>
+        </div>
+
+        <p id="signupMsg" class="auth-message"></p>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

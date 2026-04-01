@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Study Planner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>Study Planner</h2>
+
+<p id="plannerHint" class="hint-text">Add tasks first, or enter subjects manually to create a study plan.</p>
+<div id="plannerTaskSummary" class="planner-summary"></div>
+<input type="text" id="subjects" placeholder="Enter extra subjects (comma separated)">
+<input type="date" id="examDate">
+
+<button onclick="generatePlan()">Generate Plan</button>
+
+<div id="plannerBoard" class="planner-board"></div>
+<pre id="plan"></pre>
+
+<script src="script.js"></script>
+</body>
+</html>

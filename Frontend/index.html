@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduMate AI Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="app-body">
+
+<aside id="sidebar" class="sidebar">
+    <div class="brand-block">
+        <img class="brand-logo" src="logo.svg" alt="EduMate AI logo">
+        <div>
+            <h1>EduMate AI</h1>
+            <p>Your learning cockpit</p>
+        </div>
+    </div>
+
+    <nav class="sidebar-nav">
+        <a class="nav-link active" data-page="home" onclick="showPage('home')">Dashboard</a>
+        <a class="nav-link" data-page="tasks" onclick="showPage('tasks')">Tasks</a>
+        <a class="nav-link" data-page="planner" onclick="showPage('planner')">Study Planner</a>
+        <a class="nav-link" data-page="assistant" onclick="showPage('assistant')">Study Assistant</a>
+        <a class="nav-link" data-page="chatbot" onclick="showPage('chatbot')">Chatbot</a>
+        <a class="nav-link" data-page="profile" onclick="showPage('profile')">Profile</a>
+    </nav>
+
+    <button class="secondary-btn sidebar-logout" onclick="logout()">Logout</button>
+</aside>
+
+<main class="main">
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">Focused Workspace</p>
+            <h2>Make your study plan feel clear, calm, and doable.</h2>
+        </div>
+        <div class="profile-box">
+            <span id="userDisplay"></span>
+        </div>
+    </header>
+
+    <section id="home" class="page active">
+        <div class="hero-panel">
+            <div>
+                <p class="eyebrow">Dashboard Overview</p>
+                <h3>Everything important is one click away.</h3>
+                <p>Move through your planner, tasks, assistant, and chatbot with smooth page transitions and cleaner focus.</p>
+            </div>
+            <div class="hero-badge">
+                <span>Human-friendly planning</span>
+                <strong>Up to 12h max/day</strong>
+            </div>
+        </div>
+
+        <div class="card-container dashboard-cards">
+            <div class="card feature-card task-card" onclick="showPage('tasks')">
+                <span class="card-tag">Track</span>
+                <h3>Task Session</h3>
+                <p>Add upcoming work and let the planner organize it.</p>
+            </div>
+            <div class="card feature-card planner-card" onclick="showPage('planner')">
+                <span class="card-tag">Plan</span>
+                <h3>Study Planner</h3>
+                <p>Generate structured daily schedules with time blocks.</p>
+            </div>
+            <div class="card feature-card assistant-card" onclick="showPage('assistant')">
+                <span class="card-tag">Learn</span>
+                <h3>Study Assistant</h3>
+                <p>Get quick subject help, prompts, and revision support.</p>
+            </div>
+            <div class="card feature-card chatbot-card" onclick="showPage('chatbot')">
+                <span class="card-tag">Ask</span>
+                <h3>Chatbot</h3>
+                <p>Chat naturally whenever you need fast guidance.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="tasks" class="page">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Task Session</p>
+                <h3>Capture what needs to be finished next.</h3>
+            </div>
+        </div>
+
+        <div class="panel-card task-panel">
+            <div class="task-form-grid">
+                <div class="field">
+                    <label for="task">Task Name</label>
+                    <input id="task" placeholder="Example: DBMS Unit 3 revision">
+                </div>
+                <div class="field">
+                    <label for="deadline">Deadline</label>
+                    <input type="date" id="deadline">
+                </div>
+                <div class="field action-field">
+                    <label>&nbsp;</label>
+                    <button class="primary-btn" onclick="addTask()">Add Task</button>
+                </div>
+            </div>
+            <ul id="taskList" class="task-grid"></ul>
+        </div>
+    </section>
+
+    <section id="planner" class="page">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Study Planner</p>
+                <h3>Generate a neat, realistic schedule from your tasks.</h3>
+            </div>
+        </div>
+
+        <div class="panel-card planner-panel">
+            <p id="plannerHint" class="hint-text">Add tasks first. The planner will build a realistic schedule directly from your tasks.</p>
+            <div id="plannerTaskSummary" class="planner-summary"></div>
+
+            <div class="planner-controls">
+                <div class="field">
+                    <label for="startDate">Planner Start Date</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="field planner-action">
+                    <label>&nbsp;</label>
+                    <button class="primary-btn" onclick="generatePlan()">Generate Planner</button>
+                </div>
+            </div>
+
+            <div id="plannerBoard" class="planner-board"></div>
+            <pre id="plan"></pre>
+        </div>
+    </section>
+
+    <section id="assistant" class="page">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Study Assistant</p>
+                <h3>Choose what you want to study and get full notes.</h3>
+            </div>
+        </div>
+
+        <div class="assistant-layout">
+            <div class="panel-card assistant-panel">
+                <h4>What Are You Going To Study?</h4>
+                <div class="assistant-note-form">
+                    <div class="field">
+                        <label for="studyTopic">Topic / Subject</label>
+                        <input id="studyTopic" placeholder="Example: DBMS normalization, Operating System scheduling, Photosynthesis">
+                    </div>
+                    <button class="primary-btn" onclick="generateStudyNotes()">Get Full Notes</button>
+                </div>
+                <div id="studyNotesOutput" class="notes-output">
+                    Enter the topic you are going to study and the assistant will prepare full notes here.
+                </div>
+            </div>
+
+            <div class="panel-card assistant-panel soft-panel">
+                <h4>Study Guide</h4>
+                <ul class="suggestion-list">
+                    <li>Enter the exact chapter, concept, or unit name for better notes.</li>
+                    <li>Use the generated notes first, then ask the chatbot for doubts and follow-up questions.</li>
+                    <li>After reading the notes, move important revision work into your task list.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section id="chatbot" class="page">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Chatbot</p>
+                <h3>Ask questions in a clean, flexible chat space.</h3>
+            </div>
+        </div>
+
+        <div class="panel-card chatbot-panel">
+            <div class="chat-toolbar">
+                <button class="secondary-btn chat-tool-btn" onclick="startVoiceInput()">Voice Input</button>
+                <button class="secondary-btn chat-tool-btn" onclick="generateQuickQuiz()">Generate Quiz</button>
+                <button class="secondary-btn chat-tool-btn" onclick="generatePuzzle()">Generate Puzzle</button>
+                <button class="secondary-btn chat-tool-btn" onclick="generateChatImage()">Generate Picture</button>
+            </div>
+            <div id="studyChatOutput" class="chat-output"></div>
+            <div class="chat-input-bar">
+                <input id="studyChatInput" class="chat-input" placeholder="Ask about tasks, revision, planning, or a study topic...">
+                <button class="primary-btn chat-send-btn" onclick="studyChatAI()">Send</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="profile" class="page">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Profile</p>
+                <h3>View and update your personal learning details.</h3>
+            </div>
+        </div>
+
+        <div class="panel-card profile-panel">
+            <div class="profile-grid">
+                <div class="field">
+                    <label for="profileUsername">Username</label>
+                    <input id="profileUsername" readonly>
+                </div>
+                <div class="field">
+                    <label for="profileFullName">Full Name</label>
+                    <input id="profileFullName" placeholder="Enter your full name">
+                </div>
+                <div class="field">
+                    <label for="profileFocus">Learning Focus</label>
+                    <input id="profileFocus" placeholder="Example: AI, DBMS, Exam preparation">
+                </div>
+                <div class="field profile-action">
+                    <label>&nbsp;</label>
+                    <button class="primary-btn" onclick="updateProfile()">Update Profile</button>
+                </div>
+            </div>
+            <p id="profileMsg" class="auth-message"></p>
+        </div>
+    </section>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>

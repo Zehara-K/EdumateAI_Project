@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - EduMate AI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+  <div class="auth-shell">
+    <section class="auth-visual">
+      <div class="auth-visual-overlay"></div>
+      <div class="auth-visual-copy">
+        <span class="eyebrow">EduMate AI</span>
+        <img class="auth-logo" src="logo.svg" alt="EduMate AI logo">
+        <h1>Study smarter with a planner built for real students.</h1>
+        <p>Track tasks, build human-friendly study plans, and get instant support from your assistant and chatbot.</p>
+      </div>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-card">
+        <img class="auth-logo auth-logo-card" src="logo.svg" alt="EduMate AI logo">
+        <span class="eyebrow">Welcome Back</span>
+        <h2>Login</h2>
+        <p class="auth-subtext">Continue your learning journey.</p>
+
+        <div class="auth-form">
+          <label for="username">Username</label>
+          <input type="text" id="username" placeholder="Enter your username">
+
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Enter your password">
+
+          <button class="primary-btn auth-btn" onclick="login()">Login</button>
+          <button class="secondary-btn auth-btn" onclick="goToSignup()">Create New Account</button>
+        </div>
+
+        <p id="loginMsg" class="auth-message"></p>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

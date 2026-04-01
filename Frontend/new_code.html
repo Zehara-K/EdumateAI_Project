@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Productivity Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f4f9; }
+    header { background:#4e73df; color:#fff; padding:1rem; text-align:center; }
+    .container { max-width:900px; margin:2rem auto; padding:1rem; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+    h2 { color:#4e73df; }
+    input, select, button, textarea { padding:0.5rem; margin:0.3rem 0; width:100%; border-radius:4px; border:1px solid #ccc; }
+    button { background:#4e73df; color:#fff; border:none; cursor:pointer; }
+    button:hover { background:#2e59d9; }
+    .section { margin-bottom:2rem; }
+    ul { list-style:none; padding:0; }
+    li { background:#e9ecef; margin:0.5rem 0; padding:0.5rem; border-radius:4px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Student Productivity Dashboard</h1>
+</header>
+
+<div class="container">
+
+  <!-- LOGIN / SIGNUP -->
+  <div id="auth-section">
+    <h2>Login / Signup</h2>
+    <input type="text" id="username" placeholder="Enter Username">
+    <input type="password" id="password" placeholder="Enter Password">
+    <button onclick="signup()">Signup</button>
+    <button onclick="login()">Login</button>
+    <p id="auth-msg"></p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="hidden">
+
+    <h2>Welcome, <span id="user-display"></span>!</h2>
+    <button onclick="logout()">Logout</button>
+
+    <!-- TASKS -->
+    <div class="section">
+      <h3>Tasks Manager</h3>
+      <input type="text" id="task-name" placeholder="Enter Task">
+      <input type="date" id="task-date">
+      <select id="task-priority">
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+      </select>
+      <button onclick="addTask()">Add Task</button>
+      <ul id="task-list"></ul>
+    </div>
+
+    <!-- STUDY PLANNER -->
+    <div class="section">
+      <h3>Study Planner</h3>
+      <input type="text" id="study-subjects" placeholder="Enter subjects (comma separated)">
+      <input type="date" id="study-start-date">
+      <button onclick="generatePlan()">Generate Plan</button>
+      <ul id="study-plan"></ul>
+    </div>
+
+    <!-- STUDY ASSISTANT -->
+    <div class="section">
+      <h3>Study Assistant</h3>
+      <input type="text" id="assistant-subject" placeholder="Enter subject/topic">
+      <button onclick="showNotes()">Get Notes</button>
+      <div id="assistant-notes"></div>
+    </div>
+
+    <!-- CHATBOT -->
+    <div class="section">
+      <h3>Chatbot</h3>
+      <input type="text" id="chat-input" placeholder="Ask me anything">
+      <button onclick="chat()">Send</button>
+      <ul id="chat-box"></ul>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ========== AUTH ==========
+  function signup() {
+    const user = document.getElementById("username").value.trim();
+    const pass = document.getElementById("password").value.trim();
+    const msg = document.getElementById("auth-msg");
+    if(!user || !pass) { msg.innerText="⚠️ Enter username & password"; return; }
+    localStorage.setItem("user_"+user, pass);
+    msg.innerText="✅ Signup successful!";
+  }
+
+  function login() {
+    const user = document.getElementById("username").value.trim();
+    const pass = document.getElementById("password").value.trim();
+    const msg = document.getElementById("auth-msg");
+    const stored = localStorage.getItem("user_"+user);
+    if(stored && stored === pass){
+      msg.innerText="✅ Login successful!";
+      document.getElementById("auth-section").classList.add("hidden");
+      document.getElementById("dashboard").classList.remove("hidden");
+      document.getElementById("user-display").innerText = user;
+      loadTasks();
+      loadStudyPlan();
+    } else { msg.innerText="❌ Invalid credentials"; }
+  }
+
+  function logout() {
+    document.getElementById("dashboard").classList.add("hidden");
+    document.getElementById("auth-section").classList.remove("hidden");
+    document.getElementById("username").value="";
+    document.getElementById("password").value="";
+  }
+
+  // ========== TASKS ==========
+  function addTask() {
+    const user = document.getElementById("user-display").innerText;
+    const name = document.getElementById("task-name").value.trim();
+    const date = document.getElementById("task-date").value;
+    const priority = document.getElementById("task-priority").value;
+    if(!name || !date) return alert("Enter task & date");
+    let tasks = JSON.parse(localStorage.getItem("tasks_"+user) || "[]");
+    tasks.push({name,date,priority});
+    localStorage.setItem("tasks_"+user, JSON.stringify(tasks));
+    document.getElementById("task-name").value="";
+    document.getElementById("task-date").value="";
+    loadTasks();
+  }
+
+  function loadTasks() {
+    const user = document.getElementById("user-display").innerText;
+    let tasks = JSON.parse(localStorage.getItem("tasks_"+user) || "[]");
+    const ul = document.getElementById("task-list");
+    ul.innerHTML="";
+    tasks.forEach((t,i)=>{
+      const deadline = new Date(t.date);
+      const today = new Date();
+      const daysLeft = Math.ceil((deadline - today)/(1000*60*60*24));
+      const li = document.createElement("li");
+      li.innerText = `${t.name} | ${t.priority} | Due: ${t.date} | Days Left: ${daysLeft}`;
+      ul.appendChild(li);
+    });
+  }
+
+  // ========== STUDY PLANNER ==========
+  function generatePlan() {
+    const user = document.getElementById("user-display").innerText;
+    const subjects = document.getElementById("study-subjects").value.split(",").map(s=>s.trim()).filter(Boolean);
+    const startDate = new Date(document.getElementById("study-start-date").value);
+    if(!subjects.length || isNaN(startDate)) return alert("Enter subjects & valid date");
+    const plan = subjects.map((sub,i)=>{
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + i);
+      return {day:d.toDateString(), subject:sub};
+    });
+    localStorage.setItem("plan_"+user, JSON.stringify(plan));
+    loadStudyPlan();
+  }
+
+  function loadStudyPlan() {
+    const user = document.getElementById("user-display").innerText;
+    const plan = JSON.parse(localStorage.getItem("plan_"+user) || "[]");
+    const ul = document.getElementById("study-plan");
+    ul.innerHTML="";
+    plan.forEach((p,i)=>{
+      const li = document.createElement("li");
+      li.innerText = `Day ${i+1} (${p.day}) → ${p.subject}`;
+      ul.appendChild(li);
+    });
+  }
+
+  // ========== STUDY ASSISTANT ==========
+  function showNotes() {
+    const topic = document.getElementById("assistant-subject").value.trim();
+    if(!topic) return;
+    const notesDiv = document.getElementById("assistant-notes");
+    // Simple static notes example
+    const notes = {
+      "dbms":"DBMS: Study database concepts, normalization, SQL queries.",
+      "os":"OS: Study process management, deadlocks, memory management.",
+      "ai":"AI: Study machine learning, neural networks, algorithms."
+    };
+    notesDiv.innerText = notes[topic.toLowerCase()] || "No notes available for this topic.";
+  }
+
+  // ========== CHATBOT ==========
+  function chat() {
+    const input = document.getElementById("chat-input").value.trim();
+    if(!input) return;
+    const ul = document.getElementById("chat-box");
+    const liUser = document.createElement("li"); liUser.innerText = "You: " + input; ul.appendChild(liUser);
+    const liBot = document.createElement("li"); liBot.innerText = "Bot: " + simpleBotResponse(input); ul.appendChild(liBot);
+    document.getElementById("chat-input").value="";
+  }
+
+  function simpleBotResponse(msg) {
+    msg = msg.toLowerCase();
+    if(msg.includes("hello") || msg.includes("hi")) return "Hello! How can I help you today?";
+    if(msg.includes("task")) return "You can add tasks in the Tasks Manager section.";
+    if(msg.includes("study")) return "Check your Study Planner for your schedule.";
+    return "I am here to assist you with tasks and study planning!";
+  }
+
+</script>
+</body>
+</html>

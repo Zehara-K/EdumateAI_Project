@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>EduMate AI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- PROFILE -->
+    <div class="profile-box">
+        <span id="userDisplay"></span>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div id="sidebar" class="sidebar">
+        <a onclick="showPage('home')">🏠 Dashboard</a>
+        <a onclick="showPage('tasks')">📋 Tasks</a>
+        <a onclick="showPage('planner')">📅 Study Planner</a>
+        <a onclick="showPage('assistant')">🧠 Study Assistant</a>
+        <a onclick="logout()">🚪 Logout</a>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+        <!-- HOME -->
+        <div id="home" class="page active">
+            <h2>Dashboard</h2>
+            <div class="card-container">
+                <div class="card" onclick="showPage('tasks')">📋 Tasks</div>
+                <div class="card" onclick="showPage('planner')">📅 Planner</div>
+                <div class="card" onclick="showPage('assistant')">🧠 Assistant</div>
+            </div>
+        </div>
+
+        <!-- TASK -->
+        <div id="tasks" class="page">
+            <h2>Task Manager</h2>
+            <input id="task" placeholder="Enter task">
+            <input type="date" id="deadline">
+            <button onclick="addTask()">Add</button>
+            <ul id="taskList"></ul>
+        </div>
+
+        <!-- PLANNER -->
+        <div id="planner" class="page">
+            <h2>Study Planner</h2>
+            <p id="plannerHint" class="hint-text">Add tasks first, or enter subjects manually to create a study plan.</p>
+            <div id="plannerTaskSummary" class="planner-summary"></div>
+            <input id="subjects" placeholder="Enter extra subjects (DBMS, OS, AI)">
+            <input type="date" id="startDate">
+            <button onclick="generatePlan()">Generate</button>
+            <div id="plannerBoard" class="planner-board"></div>
+            <pre id="plan"></pre>
+        </div>
+
+        <!-- STUDY ASSISTANT -->
+        <div id="assistant" class="page">
+            <h2>🧠 Study Assistant</h2>
+
+            <!-- Topic input and buttons -->
+            <input type="text" id="topic" placeholder="Enter topic (DBMS, OS, AI, etc.)">
+            <button onclick="generateContent()">Generate Content</button>
+
+            <!-- Output area -->
+            <pre id="output" style="white-space: pre-wrap; margin-top:10px; background:#f5f5f5; padding:10px; border-radius:8px;"></pre>
+
+            <!-- Mini AI Chatbot inside Study Assistant -->
+            <h3>💬 Ask Assistant</h3>
+            <input type="text" id="studyChatInput" placeholder="Ask me any question...">
+            <button onclick="studyChatAI()">Send</button>
+            <div id="studyChatOutput"></div>
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
